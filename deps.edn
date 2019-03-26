@@ -1,0 +1,15 @@
+{:deps
+ {com.cognitect.aws/api              {:mvn/version "0.8.273"}
+  com.cognitect.aws/endpoints        {:mvn/version "1.1.11.507"}
+  com.cognitect.aws/ec2              {:mvn/version "711.2.413.0"}
+  com.amazonaws/aws-lambda-java-core {:mvn/version "1.2.0"}
+  datascript                         {:mvn/version "0.18.2"}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                 :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+         :main-opts ["-m" "cognitect.test-runner"]}
+  :aot {:main-opts ["-e" "(compile,'eks-static-ip.core)"]}
+  :pack {:extra-deps {pack/pack.alpha {:git/url "https://github.com/juxt/pack.alpha.git"
+                                       :sha "81b9e47d992b17aa3e3af1a47aed1f0287ebe9b8"}}
+         :main-opts ["-m"]}}}

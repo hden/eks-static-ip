@@ -1,0 +1,19 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/eks-static-ip
+    docker:
+      - image: circleci/clojure:tools-deps
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "deps.edn" }}
+            - v1-dependencies-
+      - run: clojure -Stree
+      - save_cache:
+          paths:
+            - ~/.m2
+            - .cpcache
+          key: v1-dependencies-{{ checksum "deps.edn" }}
+      - run: clojure -Atest
