@@ -1,6 +1,7 @@
 (ns eks-static-ip.core
   (:require [cognitect.aws.client.api :as aws]
-            [datascript.core :as datascript])
+            [datascript.core :as datascript]
+            [taoensso.timbre :as timbre])
   (:import [com.amazonaws.services.lambda.runtime RequestHandler])
   (:gen-class
     :name eks.StaticIPHandler
@@ -19,7 +20,7 @@
 (defn describe-instances [client name values]
   (let [resp (invoke client {:op :DescribeInstances
                              :request {:MaxResults 1000
-                                       :Filters [{:Name name :Values values}]}})]
+                                       :Filters [{:Name (format "tag:%s" name) :Values values}]}})]
     (mapcat (fn [reservation]
               (map (fn [{:keys [InstanceId PublicIpAddress]}]
                      (if PublicIpAddress
@@ -31,7 +32,7 @@
 (defn describe-addresses [client name values]
   (let [resp (invoke client {:op :DescribeAddresses
                              :request {:MaxResults 1000
-                                       :Filters [{:Name name :Values values}]}})]
+                                       :Filters [{:Name (format "tag:%s" name) :Values values}]}})]
     (map (fn [{:keys [PublicIp AllocationId]}]
            {:addresses/public-ip PublicIp
             :addresses/allocation-id AllocationId})
@@ -53,10 +54,10 @@
                            db)))
 
 (defn assign-static-ips! [client db]
-  (let [instances (find-instances-without-static-ip db)
-        ips (find-available-ips db)]
-    (map vector instances ips)
+  (let [instances (timbre/spy (into [] (find-instances-without-static-ip db)))
+        ips (timbre/spy (into [] (find-available-ips db)))]
     (doseq [[instance-id allocation-id] (map vector instances ips)]
+      (timbre/info (format "Assigning allocation %s to instance %s." allocation-id instance-id))
       (invoke client {:op :AssociateAddress
                       :request {:InstanceId instance-id
                                 :AllocationId allocation-id}}))))
@@ -71,9 +72,13 @@
 (def eip-tag-value (env "EIP_TAG_VALUE"))
 
 (defn -handleRequest [_ input context]
+  (timbre/debug (format "instance-tag-key %s" instance-tag-key))
+  (timbre/debug (format "instance-tag-value %s" instance-tag-value))
+  (timbre/debug (format "eip-tag-key %s" eip-tag-key))
+  (timbre/debug (format "eip-tag-value %s" eip-tag-value))
   (let [client (create-client {:api :ec2})
         conn (datascript/create-conn)]
-    (datascript/transact! conn (describe-instances client instance-tag-key [instance-tag-value]))
-    (datascript/transact! conn (describe-addresses client eip-tag-key [eip-tag-value]))
+    (datascript/transact! conn (timbre/spy (into [] (describe-instances client instance-tag-key [instance-tag-value]))))
+    (datascript/transact! conn (timbre/spy (into [] (describe-addresses client eip-tag-key [eip-tag-value]))))
     (assign-static-ips! client @conn)
     ""))

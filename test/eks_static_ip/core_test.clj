@@ -26,7 +26,7 @@
       (core/describe-instances client "foo" ["bar"])
       (is (= [{:op :DescribeInstances
                :request {:MaxResults 1000
-                         :Filters [{:Name "foo", :Values ["bar"]}]}}]
+                         :Filters [{:Name "tag:foo", :Values ["bar"]}]}}]
              @calls))))
 
   (testing "with public-ip"
@@ -49,7 +49,7 @@
           resp (core/describe-addresses client "foo" ["bar"])]
       (is (= [{:op :DescribeAddresses
                :request {:MaxResults 1000
-                         :Filters [{:Name "foo" :Values ["bar"]}]}}]
+                         :Filters [{:Name "tag:foo" :Values ["bar"]}]}}]
              @calls))
 
       (is (= [{:addresses/allocation-id "id"

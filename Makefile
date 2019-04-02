@@ -1,9 +1,7 @@
-.PHONY: test clean
+.PHONY: uberjar test clean
 
-lambda.zip: src/eks_static_ip/core.clj
-	-@mkdir -p classes
-	clojure -A:aot
-	clojure -A:pack mach.pack.alpha.aws-lambda -e eks-static-ip.core lambda.zip
+uberjar: src/eks_static_ip/core.clj
+	lein uberjar
 
 test:
 	clojure -Atest
