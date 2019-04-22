@@ -4,7 +4,7 @@ uberjar: src/eks_static_ip/core.clj
 	lein uberjar
 
 test:
-	clojure -Atest
+	lein test
 
 clean:
 	-@rm -rf lambda*

@@ -22,10 +22,11 @@
                              :request {:MaxResults 1000
                                        :Filters [{:Name (format "tag:%s" name) :Values values}]}})]
     (mapcat (fn [reservation]
-              (map (fn [{:keys [InstanceId PublicIpAddress]}]
-                     (if PublicIpAddress
-                       {:instances/id InstanceId :instances/public-ip PublicIpAddress}
-                       {:instances/id InstanceId}))
+              (map (fn [{:keys [InstanceId PublicIpAddress NetworkInterfaces]}]
+                     (let [interfaces (get-in (first NetworkInterfaces) [:NetworkInterfaceId])]
+                       (if PublicIpAddress
+                         {:instance/id InstanceId :instance/network-interface interfaces :instance/public-ip PublicIpAddress}
+                         {:instance/id InstanceId :instance/network-interface interfaces})))
                    (get reservation :Instances [])))
             (get resp :Reservations []))))
 
@@ -34,33 +35,35 @@
                              :request {:MaxResults 1000
                                        :Filters [{:Name (format "tag:%s" name) :Values values}]}})]
     (map (fn [{:keys [PublicIp AllocationId]}]
-           {:addresses/public-ip PublicIp
-            :addresses/allocation-id AllocationId})
+           {:address/public-ip PublicIp
+            :address/allocation-id AllocationId})
          (get resp :Addresses []))))
 
 (defn find-instances-without-static-ip [db]
-  (map first (datascript/q '[:find ?id
-                             :where [?instance :instances/id ?id]
+  (map first (datascript/q '[:find (pull ?instance [:instance/id :instance/network-interface])
+                             :where [?instance :instance/id ?id]
                                     (not-join [?instance]
-                                      [?instance :instances/public-ip ?ip]
-                                      [_ :addresses/public-ip ?ip])]
+                                      [?instance :instance/public-ip ?ip]
+                                      [_ :address/public-ip ?ip])]
                            db)))
 
 (defn find-available-ips [db]
   (map first (datascript/q '[:find ?id
-                             :where [?address :addresses/allocation-id ?id]
-                                    [?address :addresses/public-ip ?ip]
-                                    (not [_ :instances/public-ip ?ip])]
+                             :where [?address :address/allocation-id ?id]
+                                    [?address :address/public-ip ?ip]
+                                    (not [_ :instance/public-ip ?ip])]
                            db)))
 
 (defn assign-static-ips! [client db]
   (let [instances (timbre/spy (into [] (find-instances-without-static-ip db)))
         ips (timbre/spy (into [] (find-available-ips db)))]
-    (doseq [[instance-id allocation-id] (map vector instances ips)]
-      (timbre/info (format "Assigning allocation %s to instance %s." allocation-id instance-id))
-      (invoke client {:op :AssociateAddress
-                      :request {:InstanceId instance-id
-                                :AllocationId allocation-id}}))))
+    (doseq [[{:keys [:instance/id :instance/network-interface]} allocation-id] (map vector instances ips)]
+      (timbre/info (format "Assigning allocation %s to instance %s (%s)." allocation-id id network-interface))
+      (let [response (invoke client {:op :AssociateAddress
+                                     :request {:AllowReassociation true
+                                               :NetworkInterfaceId network-interface
+                                               :AllocationId allocation-id}})]
+        (timbre/info response)))))
 
 (defn env
   ([x] (System/getenv x))
@@ -82,3 +85,6 @@
     (datascript/transact! conn (timbre/spy (into [] (describe-addresses client eip-tag-key [eip-tag-value]))))
     (assign-static-ips! client @conn)
     ""))
+
+(defn -main []
+  (-handleRequest nil nil nil))

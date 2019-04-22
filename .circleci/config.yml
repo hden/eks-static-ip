@@ -16,4 +16,4 @@ jobs:
             - ~/.m2
             - .cpcache
           key: v1-dependencies-{{ checksum "deps.edn" }}
-      - run: clojure -Atest
+      - run: lein test

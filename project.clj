@@ -9,4 +9,5 @@
                  [com.amazonaws/aws-lambda-java-core "1.2.0"]
                  [com.taoensso/timbre "4.10.0"]
                  [datascript "0.18.2"]]
-  :aot :all)
+  :aot :all
+  :main eks-static-ip.core)
